@@ -15,6 +15,10 @@ class SortUnitFlatRTL( VerilogModel ):
 
   def __init__( s, nbits=8 ):
 
+    # Verilog module name
+
+    s.explicit_modulename = "SortUnitFlatRTL_{}nbits".format(nbits)
+
     # Interface
 
     s.in_val  = InPort (1)

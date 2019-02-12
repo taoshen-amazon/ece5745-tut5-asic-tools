@@ -1787,7 +1787,7 @@ that we used Cadence Innovus to generate exactly this information in a
 values for every net in the gate-level netlist.
 
 ```
- pt_shell> read_parasitics -format spef "../icc-par/post-par.spef"
+ pt_shell> read_parasitics -format spef "../cadence-innovus/post-par.spef"
 ```
 
 We now have everything we need to perform the power analysis: (1) the
@@ -1821,24 +1821,7 @@ how much power the sort unit consumes.
   Cell Internal Power  = 1.063e-03   (67.85%)
   Cell Leakage Power   = 1.442e-05   ( 0.92%)
                          ---------
-Total Power            = 1.566e-03  (100.00%)
-
-                 Internal Switching  Leakage Total
- Power Group     Power     Power    Power Power   (     %)
- -----------------------------------------------------------
- clock_network   3.1e-03   0.0      0.0     3.1e-03 (63.27%)  i
- register       -9.1e-05   3.4e-04  1.3e-05 2.6e-04 ( 5.29%)
- combinational   9.9e-04   5.6e-04  1.0e-05 1.5e-03 (31.44%)
- sequential      0.0       0.0      0.0     0.0     ( 0.00%)
- memory          0.0       0.0      0.0     0.0     ( 0.00%)
- io_pad          0.0       0.0      0.0     0.0     ( 0.00%)
- black_box       0.0       0.0      0.0     0.0     ( 0.00%)
-
-  Net Switching Power  = 9.049e-04   (18.15%)
-  Cell Internal Power  = 4.057e-03   (81.38%)
-  Cell Leakage Power   = 2.351e-05   ( 0.47%)
-                         ---------
-  Total Power          = 4.985e-03  (100.00%)
+  Total Power          = 1.566e-03  (100.00%)
 ```
 
 These numbers are in Watts. We can see that the sort unit consumes ~1.6mW
@@ -1899,31 +1882,6 @@ consumes in the design.
   val_S2S3 (RegRst_0)       6.63e-06 4.88e-08 1.17e-07 6.80e-06   0.4
   elm_S1S2$000 (Reg_8)      6.73e-05 8.08e-06 6.33e-07 7.60e-05   4.9
   val_S1S2 (RegRst_2)       6.65e-06 7.09e-08 1.17e-07 6.83e-06   0.4
-
-                            Int      Switch   Leak     Total
- Hierarchy                  Power    Power    Power    Power        %
- ---------------------------------------------------------------------
- SortUnitStructRTL          4.06e-03 9.05e-04 2.35e-05 4.99e-03 100.0
-  elm_S1S2$000 (Reg_0)      2.51e-04 3.90e-05 1.09e-06 2.91e-04   5.8
-  elm_S1S2$001 (Reg_11)     2.62e-04 4.22e-05 1.11e-06 3.05e-04   6.1
-  elm_S1S2$002 (Reg_10)     2.49e-04 2.90e-05 1.07e-06 2.80e-04   5.6
-  elm_S1S2$003 (Reg_9)      2.55e-04 2.94e-05 1.11e-06 2.86e-04   5.7
-  elm_S2S3$000 (Reg_4)      2.07e-04 1.79e-06 1.05e-06 2.09e-04   4.2
-  elm_S2S3$001 (Reg_3)      2.57e-04 3.14e-05 1.08e-06 2.89e-04   5.8
-  elm_S2S3$002 (Reg_2)      2.58e-04 3.02e-05 1.08e-06 2.89e-04   5.8
-  elm_S2S3$003 (Reg_1)      2.20e-04 3.91e-07 1.08e-06 2.21e-04   4.4
-  val_S0S1 (RegRst_1)       2.31e-05 1.48e-07 1.64e-07 2.34e-05   0.5
-  val_S2S3 (RegRst_0)       2.34e-05 2.00e-07 1.64e-07 2.38e-05   0.5
-  minmax0_S1 (MinMaxUnit_3) 1.93e-04 1.13e-04 1.90e-06 3.08e-04   6.2
-  minmax0_S2 (MinMaxUnit_4) 1.99e-04 1.10e-04 1.99e-06 3.11e-04   6.2
-  minmax1_S1 (MinMaxUnit_0) 2.03e-04 1.15e-04 1.99e-06 3.20e-04   6.4
-  minmax1_S2 (MinMaxUnit_2) 2.12e-04 1.23e-04 2.13e-06 3.37e-04   6.8
-  val_S1S2 (RegRst_2)       2.33e-05 1.49e-07 1.64e-07 2.36e-05   0.5
-  minmax_S3 (MinMaxUnit_1)  1.69e-04 8.15e-05 1.63e-06 2.52e-04   5.1
-  elm_S0S1$000 (Reg_8)      2.66e-04 4.29e-05 1.18e-06 3.10e-04   6.2
-  elm_S0S1$001 (Reg_7)      2.57e-04 3.21e-05 1.18e-06 2.90e-04   5.8
-  elm_S0S1$002 (Reg_6)      2.75e-04 5.29e-05 1.29e-06 3.29e-04   6.6
-  elm_S0S1$003 (Reg_5)      2.56e-04 3.08e-05 1.08e-06 2.88e-04   5.8
 ```
 
 From this breakdown, you can see that each `MinMaxUnit` consumes about

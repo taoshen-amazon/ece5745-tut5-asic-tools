@@ -260,6 +260,10 @@ class GcdUnitRTL (Model):
 
   def __init__( s ):
 
+    # Verilog module name
+
+    s.explicit_modulename = "GcdUnitRTL"
+
     # Interface
 
     s.req   = InValRdyBundle  ( GcdUnitReqMsg() )
