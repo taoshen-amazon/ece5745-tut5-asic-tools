@@ -1481,12 +1481,14 @@ results will be _much_ more accurate than the preliminary post-synthesis
 results. Let's start with a basic timing report.
 
 ```
-Other End Arrival Time          0.000
-- Setup                         0.044
-+ Phase Shift                   0.600
-= Required Time                 0.556
-- Arrival Time                  0.492
-= Slack Time                    0.064
+ innovus> report_timing
+ ...
+ Other End Arrival Time          0.000
+ - Setup                         0.044
+ + Phase Shift                   0.600
+ = Required Time                 0.556
+ - Arrival Time                  0.492
+ = Slack Time                    0.064
      Clock Rise Edge                 0.000
      + Clock Network Latency (Prop)  0.000
      = Beginpoint Arrival Time       0.000
@@ -1533,7 +1535,7 @@ critical path is on the actual chip.
 
  - Choose _Timing > Debug Timing_ from the menu
  - Right click on first path in the _Path List_
- - Choose _Hilight > Only This Path > Color_
+ - Choose _Highlight > Only This Path > Color_
 
 You can also use the Design Browser to highlight specific modules to
 visualize how the critical path is routed across the chip between these
