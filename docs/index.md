@@ -1611,7 +1611,7 @@ the menu to display the entire design. Zoom in and out to see the
 individual transistors as well as the entire chip.
 
 ```
- % cd $TOPDIR/asic/icc-par
+ % cd $TOPDIR/asic-manual/cadence-innovus
  % klayout -l $ECE5745_STDCELLS/klayout.lyp post-par.gds
 ```
 
