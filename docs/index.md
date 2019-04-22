@@ -1236,7 +1236,7 @@ any previously designed blocks. For now we just do some very simple
 floorplanning using the `floorPlan` command.
 
 ```
- innovus> floorPlan -su 1.0 0.70 4.0 4.0 4.0 4.0
+ innovus> floorPlan -r 1.0 0.70 4.0 4.0 4.0 4.0
 ```
 
 In this example, we have chosen the aspect ratio to be 1.0 and a target
