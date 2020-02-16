@@ -27,8 +27,8 @@
 // behavior. Pipeline behavior is when the deq_rdy signal is
 // combinationally wired to the enq_rdy signal allowing elements to be
 // dequeued and enqueued in the same cycle when the queue is full. Bypass
-// behavior is when the enq_val signal is combinationally wired to the
-// deq_val signal allowing elements to bypass the storage element if the
+// behavior is when the enq_en signal is combinationally wired to the
+// deq_rdy signal allowing elements to bypass the storage element if the
 // storage element is empty.
 
 module vc_QueueCtrl1
@@ -38,11 +38,11 @@ module vc_QueueCtrl1
   input  logic clk,
   input  logic reset,
 
-  input  logic enq_val,        // Enqueue data is valid
+  input  logic enq_en,         // Enqueue is called
   output logic enq_rdy,        // Ready for producer to do an enqueue
 
-  output logic deq_val,        // Dequeue data is valid
-  input  logic deq_rdy,        // Consumer is ready to do a dequeue
+  input  logic deq_en,         // Dequeue is called
+  output logic deq_rdy,        // Consumer is ready to do a dequeue
 
   output logic write_en,       // Write en signal to wire up to storage element
   output logic bypass_mux_sel, // Used to control bypass mux for bypass queues
@@ -65,13 +65,13 @@ module vc_QueueCtrl1
   localparam c_pipe_en   = |( p_type & `VC_QUEUE_PIPE   );
   localparam c_bypass_en = |( p_type & `VC_QUEUE_BYPASS );
 
-  // We enq/deq only when they are both ready and valid
+  // We enq/deq only when the call is enabled
 
   logic  do_enq;
-  assign do_enq = enq_rdy && enq_val;
+  assign do_enq = enq_en;
 
   logic  do_deq;
-  assign do_deq = deq_rdy && deq_val;
+  assign do_deq = deq_en;
 
   // Determine if we have pipeline or bypass behaviour and
   // set the write enable accordingly.
@@ -95,12 +95,12 @@ module vc_QueueCtrl1
 
   // Ready signals are calculated from full register. If pipeline
   // behavior is enabled, then the enq_rdy signal is also calculated
-  // combinationally from the deq_rdy signal. If bypass behavior is
-  // enabled then the deq_val signal is also calculated combinationally
-  // from the enq_val signal.
+  // combinationally from the deq_en signal. If bypass behavior is
+  // enabled then the deq_rdy signal is also calculated combinationally
+  // from the enq_en signal.
 
-  assign enq_rdy  = ~full  || ( c_pipe_en   && full  && deq_rdy );
-  assign deq_val  = ~empty || ( c_bypass_en && empty && enq_val );
+  assign enq_rdy  = ~full  || ( c_pipe_en   && full  && deq_en );
+  assign deq_rdy  = ~empty || ( c_bypass_en && empty && enq_en );
 
   // Control logic for the full register input
 
@@ -126,7 +126,7 @@ module vc_QueueDpath1
   input  logic                   write_en,
   input  logic                   bypass_mux_sel,
   input  logic [p_msg_nbits-1:0] enq_msg,
-  output logic [p_msg_nbits-1:0] deq_msg
+  output logic [p_msg_nbits-1:0] deq_ret
 );
 
   // Queue storage
@@ -152,11 +152,11 @@ module vc_QueueDpath1
       .in0 (qstore),
       .in1 (enq_msg),
       .sel (bypass_mux_sel),
-      .out (deq_msg)
+      .out (deq_ret)
     );
 
   else
-    assign deq_msg = qstore;
+    assign deq_ret = qstore;
   endgenerate
 
 endmodule
@@ -167,10 +167,10 @@ endmodule
 // This is the control logic for a multi-elment queue. It is designed to
 // be attached to a Regfile storage element. Additionally, it includes
 // the ability to statically enable pipeline and/or bypass behavior.
-// Pipeline behavior is when the deq_rdy signal is combinationally wired
+// Pipeline behavior is when the deq_en signal is combinationally wired
 // to the enq_rdy signal allowing elements to be dequeued and enqueued in
 // the same cycle when the queue is full. Bypass behavior is when the
-// enq_val signal is cominationally wired to the deq_val signal allowing
+// enq_en signal is cominationally wired to the deq_rdy signal allowing
 // elements to bypass the storage element if the storage element is
 // empty.
 
@@ -184,11 +184,11 @@ module vc_QueueCtrl
 )(
   input  logic                    clk, reset,
 
-  input  logic                    enq_val,        // Enqueue data is valid
+  input  logic                    enq_en,         // Enqueue is called
   output logic                    enq_rdy,        // Ready for producer to enqueue
 
-  output logic                    deq_val,        // Dequeue data is valid
-  input  logic                    deq_rdy,        // Consumer is ready to dequeue
+  input  logic                    deq_en,        // Dequeue is called
+  output logic                    deq_rdy,        // Consumer is ready to dequeue
 
   output logic                    write_en,       // Wen to wire to regfile
   output logic [c_addr_nbits-1:0] write_addr,     // Waddr to wire to regfile
@@ -245,10 +245,10 @@ module vc_QueueCtrl
   // We enq/deq only when they are both ready and valid
 
   logic  do_enq;
-  assign do_enq = enq_rdy && enq_val;
+  assign do_enq = enq_en;
 
   logic  do_deq;
-  assign do_deq = deq_rdy && deq_val;
+  assign do_deq = deq_en;
 
   // Determine if we have pipeline or bypass behaviour and
   // set the write enable accordingly.
@@ -257,7 +257,7 @@ module vc_QueueCtrl
   assign empty = ~full && (enq_ptr == deq_ptr);
 
   logic  do_pipe;
-  assign do_pipe = c_pipe_en   && full  && do_enq && do_deq;
+  assign do_pipe = c_pipe_en && full  && do_enq && do_deq;
 
   logic  do_bypass;
   assign do_bypass = c_bypass_en && empty && do_enq && do_deq;
@@ -272,12 +272,12 @@ module vc_QueueCtrl
 
   // Ready signals are calculated from full register. If pipeline
   // behavior is enabled, then the enq_rdy signal is also calculated
-  // combinationally from the deq_rdy signal. If bypass behavior is
-  // enabled then the deq_val signal is also calculated combinationally
-  // from the enq_val signal.
+  // combinationally from the deq_en signal. If bypass behavior is
+  // enabled then the deq_rdy signal is also calculated combinationally
+  // from the enq_en signal.
 
-  assign enq_rdy  = ~full  || ( c_pipe_en   && full  && deq_rdy );
-  assign deq_val  = ~empty || ( c_bypass_en && empty && enq_val );
+  assign enq_rdy  = ~full  || ( c_pipe_en   && full  && deq_en );
+  assign deq_rdy  = ~empty || ( c_bypass_en && empty && enq_en );
 
   // Control logic for the enq/deq pointers and full register
 
@@ -341,7 +341,7 @@ module vc_QueueDpath
   input  logic [c_addr_nbits-1:0] write_addr,
   input  logic [c_addr_nbits-1:0] read_addr,
   input  logic [p_msg_nbits-1:0]  enq_msg,
-  output logic [p_msg_nbits-1:0]  deq_msg
+  output logic [p_msg_nbits-1:0]  deq_ret
 );
 
   // Queue storage
@@ -369,11 +369,11 @@ module vc_QueueDpath
       .in0 (read_data),
       .in1 (enq_msg),
       .sel (bypass_mux_sel),
-      .out (deq_msg)
+      .out (deq_ret)
     );
 
   else
-    assign deq_msg = read_data;
+    assign deq_ret = read_data;
   endgenerate
 
 endmodule
@@ -394,13 +394,13 @@ module vc_Queue
   input  logic                   clk,
   input  logic                   reset,
 
-  input  logic                   enq_val,
+  input  logic                   enq_en,
   output logic                   enq_rdy,
   input  logic [p_msg_nbits-1:0] enq_msg,
 
-  output logic                   deq_val,
-  input  logic                   deq_rdy,
-  output logic [p_msg_nbits-1:0] deq_msg,
+  input  logic                   deq_en,
+  output logic                   deq_rdy,
+  output logic [p_msg_nbits-1:0] deq_ret,
 
   output logic [c_addr_nbits:0]  num_free_entries
 );
@@ -417,9 +417,9 @@ module vc_Queue
     (
       .clk              (clk),
       .reset            (reset),
-      .enq_val          (enq_val),
+      .enq_en           (enq_en),
       .enq_rdy          (enq_rdy),
-      .deq_val          (deq_val),
+      .deq_en           (deq_en),
       .deq_rdy          (deq_rdy),
       .write_en         (write_en),
       .bypass_mux_sel   (bypass_mux_sel),
@@ -433,7 +433,7 @@ module vc_Queue
       .write_en       (write_en),
       .bypass_mux_sel (bypass_mux_sel),
       .enq_msg        (enq_msg),
-      .deq_msg        (deq_msg)
+      .deq_ret        (deq_ret)
     );
 
   end
@@ -449,9 +449,9 @@ module vc_Queue
     (
       .clk              (clk),
       .reset            (reset),
-      .enq_val          (enq_val),
+      .enq_en           (enq_en),
       .enq_rdy          (enq_rdy),
-      .deq_val          (deq_val),
+      .deq_en           (deq_en),
       .deq_rdy          (deq_rdy),
       .write_en         (write_en),
       .write_addr       (write_addr),
@@ -469,7 +469,7 @@ module vc_Queue
       .write_addr       (write_addr),
       .read_addr        (read_addr),
       .enq_msg          (enq_msg),
-      .deq_msg          (deq_msg)
+      .deq_ret          (deq_ret)
     );
 
   end
@@ -480,9 +480,9 @@ module vc_Queue
   /*
   always_ff @( posedge clk ) begin
     if ( !reset ) begin
-      `VC_ASSERT_NOT_X( enq_val );
+      `VC_ASSERT_NOT_X( enq_en  );
       `VC_ASSERT_NOT_X( enq_rdy );
-      `VC_ASSERT_NOT_X( deq_val );
+      `VC_ASSERT_NOT_X( deq_en  );
       `VC_ASSERT_NOT_X( deq_rdy );
     end
   end
@@ -496,7 +496,7 @@ module vc_Queue
   //  begin
   //
   //    $sformat( str, "%x", enq_msg );
-  //    vc_trace.append_val_rdy_str( trace_str, enq_val, enq_rdy, str );
+  //    vc_trace.append_en_rdy_str( trace_str, enq_en, enq_rdy, str );
   //
   //    vc_trace.append_str( trace_str, "(" );
   //    $sformat( str, "%x", p_num_msgs-num_free_entries );
@@ -504,7 +504,7 @@ module vc_Queue
   //    vc_trace.append_str( trace_str, ")" );
   //
   //    $sformat( str, "%x", deq_msg );
-  //    vc_trace.append_val_rdy_str( trace_str, deq_val, deq_rdy, str );
+  //    vc_trace.append_en_rdy_str( trace_str, deq_en, deq_rdy, str );
 
   // end
   // endtask

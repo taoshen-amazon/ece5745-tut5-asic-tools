@@ -7,9 +7,10 @@ import pytest
 from copy       import deepcopy
 from random     import randint, seed
 
-from pymtl      import *
-from pclib.test import run_test_vector_sim, mk_test_case_table
-from SortUnitCL import SortUnitCL
+from pymtl3      import *
+from pymtl3.stdlib.test import run_test_vector_sim, mk_test_case_table
+from .SortUnitCL import SortUnitCL
+from .SortUnitFL_test import tvec_stream, tvec_dups, tvec_sorted, tvec_random
 
 # To ensure reproducible testing
 
@@ -30,10 +31,6 @@ header_str = \
 # character instead of '?' to indicate don't care reference outputs
 
 x = '?'
-
-# Use xr as shorthand for xrange to make list comprehensions more compact
-
-xr = xrange
 
 #-------------------------------------------------------------------------
 # mk_test_vector_table
@@ -84,11 +81,6 @@ def test_basic( dump_vcd ):
 # Parameterized Testing with Test Case Table
 #-------------------------------------------------------------------------
 
-tvec_stream = [ [ 4, 3, 2, 1 ], [ 9, 6, 7, 1 ], [ 4, 8, 0, 9 ] ]
-tvec_dups   = [ [ 2, 8, 9, 9 ], [ 2, 8, 2, 8 ], [ 1, 1, 1, 1 ] ]
-tvec_sorted = [ [ 1, 2, 3, 4 ], [ 1, 3, 5, 7 ], [ 4, 3, 2, 1 ] ]
-tvec_random = [ [ randint(0,0xff) for i in xr(4) ] for y in xr(20) ]
-
 test_case_table = mk_test_case_table([
   (                 "nstages inputs      "),
   [ "1stage_stream", 1,      tvec_stream  ],
@@ -106,7 +98,7 @@ test_case_table = mk_test_case_table([
 ])
 
 @pytest.mark.parametrize( **test_case_table )
-def test( test_params, dump_vcd ):
+def test_sort_cl( test_params, dump_vcd ):
   nstages = test_params.nstages
   inputs  = test_params.inputs
   run_test_vector_sim( SortUnitCL( nstages=nstages ),
@@ -117,8 +109,7 @@ def test( test_params, dump_vcd ):
 #-------------------------------------------------------------------------
 
 @pytest.mark.parametrize( "n", [ 1, 2, 3, 4, 5, 6 ] )
-def test_random( n, dump_vcd ):
-  tvec_random = [ [ randint(0,0xff) for i in xr(4) ] for y in xr(20) ]
+def test_sort_cl_random( n, dump_vcd ):
   run_test_vector_sim( SortUnitCL( nstages=n ),
     mk_test_vector_table( n, tvec_random ), dump_vcd )
 

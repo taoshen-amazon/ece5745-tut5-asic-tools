@@ -41,7 +41,7 @@ def dump_vcd(request):
   if request.config.option.dump_vcd:
     test_module = request.module.__name__
     test_name   = request.node.name
-    return '{}.{}.vcd'.format( test_module, test_name )
+    return '{}.{}'.format( test_module, test_name )
   else:
     return ''
 
@@ -89,7 +89,7 @@ def pytest_cmdline_preparse(config, args):
 
 def pytest_runtest_setup(item):
   test_verilog = item.config.option.test_verilog
-  if test_verilog and 'test_verilog' not in item.funcargnames:
+  if test_verilog and 'test_verilog' not in item.fixturenames:
     pytest.skip("ignoring non-Verilog tests")
 
 def pytest_report_header(config):

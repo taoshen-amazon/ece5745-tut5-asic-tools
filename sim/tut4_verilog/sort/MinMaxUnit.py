@@ -1,43 +1,44 @@
 #=========================================================================
 # MinMaxUnit
 #=========================================================================
+# This module takes two inputs, compares them, and outputs the larger
+# via the "max" output port and the smaller via the "min" output port.
 
-from pymtl import *
 import os
+from pymtl3 import *
+from pymtl3.passes.backends.verilog import (
+  VerilogPlaceholderConfigs,
+  VerilatorImportConfigs,
+  TranslationConfigs,
+)
 
-class MinMaxUnit( VerilogModel ):
-
-  # Verilog module setup
-
-  vprefix = "tut4_verilog_sort"
+class MinMaxUnit( Placeholder, Component ):
 
   # Constructor
 
-  def __init__( s, nbits=8 ):
+  def construct( s, DataType ):
 
-    s.in0     = InPort  ( nbits )
-    s.in1     = InPort  ( nbits )
-    s.out_min = OutPort ( nbits )
-    s.out_max = OutPort ( nbits )
+    # Port-based interface
 
-    # Verilog parameters
+    s.in0     = InPort ( DataType )
+    s.in1     = InPort ( DataType )
+    s.out_min = OutPort( DataType )
+    s.out_max = OutPort( DataType )
 
-    s.set_params({
-      'p_nbits' : nbits,
-    })
+    # Configurations
 
-    # Verilog ports
-
-    s.set_ports({
-      'in0'     : s.in0,
-      'in1'     : s.in1,
-      'out_min' : s.out_min,
-      'out_max' : s.out_max,
-    })
-
-  # Line tracing
-
-  def line_trace( s ):
-    return "{}|{}(){}|{}".format( s.in0, s.in1, s.out_min, s.out_max )
-
-
+    s.config_placeholder = VerilogPlaceholderConfigs(
+      # Path to the Verilog source file
+      src_file = os.path.dirname( __file__ ) + '/MinMaxUnit.v',
+      # Name of the Verilog top level module
+      top_module = 'tut4_verilog_sort_MinMaxUnit',
+      # MinMaxUnit does not have clk and reset pins
+      has_clk   = False,
+      has_reset = False,
+      # Verilog Parameters
+      params = { 'p_nbits' : DataType.nbits },
+    )
+    s.config_verilog_translate = TranslationConfigs(
+      translate = False,
+      explicit_module_name = 'MinMaxUnit',
+    )

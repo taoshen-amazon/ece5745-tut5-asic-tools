@@ -2,11 +2,11 @@
 # GCD Unit CL Model
 #=========================================================================
 
-from pymtl      import *
-from pclib.ifcs import InValRdyBundle, OutValRdyBundle, valrdy_to_str
-from pclib.cl   import InValRdyQueueAdapter, OutValRdyQueueAdapter
+from pymtl3      import *
+from pymtl3.stdlib.cl import PipeQueueCL
+from pymtl3.stdlib.ifcs import MinionIfcCL
 
-from GcdUnitMsg import GcdUnitReqMsg
+from .GcdUnitMsg import GcdUnitMsgs
 
 #-------------------------------------------------------------------------
 # gcd
@@ -15,8 +15,7 @@ from GcdUnitMsg import GcdUnitReqMsg
 # common denomiator, but also to estimate the number of cycles a simple
 # FSM-based GCD unit might take.
 
-def gcd( a, b ):
-
+def gcd_cl( a, b ):
   ncycles = 0
   while True:
     ncycles += 1
@@ -31,52 +30,43 @@ def gcd( a, b ):
 # GcdUnitCL
 #-------------------------------------------------------------------------
 
-class GcdUnitCL( Model ):
+class GcdUnitCL( Component ):
 
   # Constructor
 
-  def __init__( s ):
+  def construct( s ):
 
     # Interface
 
-    s.req    = InValRdyBundle  ( GcdUnitReqMsg() )
-    s.resp   = OutValRdyBundle ( Bits(16)        )
+    s.minion = MinionIfcCL( GcdUnitMsgs.req, GcdUnitMsgs.resp )
 
     # Adapters
 
-    s.req_q  = InValRdyQueueAdapter  ( s.req  )
-    s.resp_q = OutValRdyQueueAdapter ( s.resp )
+    s.req_q  = PipeQueueCL(1)( enq = s.minion.req )
 
     # Member variables
 
-    s.result  = 0
+    s.result  = None
     s.counter = 0
 
     # Concurrent block
 
-    @s.tick_cl
+    @s.update
     def block():
 
-      # Tick the queue adapters
+      if s.result is not None:
+        # Handle delay to model the gcd unit latency
+        if s.counter > 0:
+          s.counter -= 1
+        elif s.minion.resp.rdy():
+          s.minion.resp( s.result )
+          s.result = None
 
-      s.req_q.xtick()
-      s.resp_q.xtick()
-
-      # Handle delay to model the gcd unit latency
-
-      if s.counter > 0:
-        s.counter -= 1
-        if s.counter == 0:
-          s.resp_q.enq( s.result )
-
-      # If we have a new message and the output queue is not full
-
-      elif not s.req_q.empty() and not s.resp_q.full():
-        req_msg = s.req_q.deq()
-        s.result,s.counter = gcd( req_msg.a, req_msg.b )
+      elif s.req_q.deq.rdy():
+        msg = s.req_q.deq()
+        s.result, s.counter = gcd_cl(msg.a, msg.b)
 
   # Line tracing
 
   def line_trace( s ):
-    return "{}(){}".format( s.req, s.resp )
-
+    return f"{s.minion.req}({s.counter:^4}){s.minion.resp}"

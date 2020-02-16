@@ -9,7 +9,7 @@ ECE 5745 Tutorial 5: Synopsys/Cadence ASIC Tools
 
  - Introduction
  - Nangate 45nm Standard-Cell Library
- - PyMTL-Based Testing, Simulation, Translation
+ - PyMTL3-Based Testing, Simulation, Translation
  - Using Synopsys Design Compiler for Synthesis
  - Using Cadence Innovus for Place-and-Route
  - Using Synopsys PrimeTime for Power Analysis
@@ -28,7 +28,7 @@ commands manually for each of the tools to enable students to gain a
 better understanding of the detailed steps involved in this process. The
 next tutorial will illustrate how this process can be automated to
 facilitate rapid design-space exploration. This tutorial assumes you have
-already completed the tutorials on Linux, Git, PyMTL, and Verilog.
+already completed the tutorials on Linux, Git, PyMTL3, and Verilog.
 
 The following diagram illustrates the four primary tools we will be using
 in ECE 5745 along with a few smaller secondary tools. Notice that the
@@ -36,15 +36,15 @@ ASIC tools all require various views from the standard-cell library.
 
 ![](assets/fig/asic-flow.png)
 
- 1. We use the PyMTL framework to test, verify, and evaluate the
+ 1. We use the PyMTL3 framework to test, verify, and evaluate the
     execution time (in cycles) of our design. This part of the flow is
     very similar to the flow used in ECE 4750. Note that we can write our
-    RTL models in either PyMTL or Verilog, but we will always use PyMTL
+    RTL models in either PyMTL3 or Verilog, but we will always use PyMTL3
     for the test harnesses, simulation drivers, and high-level modeling.
     Once we are sure our design is working correctly, we can then start
     to push the design through the flow. The ASIC flow requires Verilog
-    RTL as an input, so we can use PyMTL's automatic translation tool to
-    translate PyMTL RTL models into Verilog RTL. We also generate
+    RTL as an input, so we can use PyMTL3's automatic translation tool to
+    translate PyMTL3 RTL models into Verilog RTL. We also generate
     waveforms in `.vcd` (Verilog Change Dump) format, and we use
     `vcd2saif` to convert these waveforms into per-net average activity
     factors stored in `.saif` format. These activity factors will be used
@@ -211,7 +211,7 @@ Let's begin by looking at the schematic for a 3-input NAND cell
 (NAND3_X1).
 
 ```
- % less -p NAND3_X1 stdcells.spi
+ % less -p NAND3_X1 $ECE5745_STDCELLS/stdcells.spi
  .SUBCKT NAND3_X1 A1 A2 A3 ZN VDD VSS
  *.PININFO A1:I A2:I A3:I ZN:O VDD:P VSS:G
  *.EQN ZN=!((A1 * A2) * A3)
@@ -563,11 +563,11 @@ databook located here:
 
  - http://www.csl.cornell.edu/courses/ece5745/resources/freepdk45-nangate-databook.pdf
 
-PyMTL-Based Testing, Simulation, Translation
+PyMTL3-Based Testing, Simulation, Translation
 --------------------------------------------------------------------------
 
 Our goal in this tutorial is to generate layout for the sort unit from
-the PyMTL tutorial using the ASIC tools. As a reminder, the sort unit
+the PyMTL3 tutorial using the ASIC tools. As a reminder, the sort unit
 takes as input four integers and a valid bit and outputs those same four
 integers in increasing order with the valid bit. The sort unit is
 implemented using a three-stage pipelined, bitonic sorting network and
@@ -586,44 +586,45 @@ tests for the `SortUnitStructRTL` will fail.
 ```
 
 You can just copy over your implementation of the `MinMaxUnit` from when
-you completed the PyMTL tutorial. If you have not completed the PyMTL
+you completed the PyMTL3 tutorial. If you have not completed the PyMTL3
 tutorial then you might want to go back and do that now. Basically the
 `MinMaxUnit` should look like this:
 
 ```
-from pymtl import *
+from pymtl3 import *
+from pymtl3 import *
 
-class MinMaxUnit( Model ):
+class MinMaxUnit( Component ):
 
   # Constructor
 
-  def __init__( s, nbits=8 ):
+  def construct( s, DataType ):
 
-    s.in0     = InPort  ( nbits )
-    s.in1     = InPort  ( nbits )
-    s.out_min = OutPort ( nbits )
-    s.out_max = OutPort ( nbits )
+    s.in0     = InPort ( DataType )
+    s.in1     = InPort ( DataType )
+    s.out_min = OutPort( DataType )
+    s.out_max = OutPort( DataType )
 
-    @s.combinational
+    @s.update
     def block():
 
       if s.in0 >= s.in1:
-        s.out_max.value = s.in0
-        s.out_min.value = s.in1
+        s.out_max = s.in0
+        s.out_min = s.in1
       else:
-        s.out_max.value = s.in1
-        s.out_min.value = s.in0
+        s.out_max = s.in1
+        s.out_min = s.in0
 
   # Line tracing
 
   def line_trace( s ):
-    return "{}|{}(){}|{}".format( s.in0, s.in1, s.out_min, s.out_max )
+    return f"{s.in0}|{s.in1}(){s.out_min}|{s.out_max}"
 ```
 
-The `--test-verilog` command line option tells the PyMTL framework to
+The `--test-verilog` command line option tells the PyMTL3 framework to
 first translate the sort unit into Verilog, and then important it back
-into PyMTL to verify that the translated Verilog is itself correct. With
-the `--test-verilog` command line option, PyMTL will skip tests that are
+into PyMTL3 to verify that the translated Verilog is itself correct. With
+the `--test-verilog` command line option, PyMTL3 will skip tests that are
 not for verifying RTL. After running the tests we use the sort unit
 simulator to do the final translation into Verilog and to dump the `.vcd`
 (Value Change Dump) file that we want to use for power analysis.
@@ -636,41 +637,42 @@ simulator to do the final translation into Verilog and to dump the `.vcd`
 ```
 
 Take a moment to open up the translated Verilog which should be in a file
-named `SortUnitStructRTL_8nbits.v`. Try to see how both the structural
+named `SortUnitStructRTL_8bit.v`. Try to see how both the structural
 composition and the behavioral modeling translates into Verilog. Here is
-an example of the translation for the `MinMaxUnit`. Notice how PyMTL will
+an example of the translation for the `MinMaxUnit`. Notice how PyMTL3 will
 output the source Python embedded as a comment in the corresponding
 translated Verilog.
 
 ```
  % cd $TOPDIR/sim/build
- % less SortUnitStructRTL_8nbits.v
+ % less SortUnitStructRTL_8bit.v
 
- module MinMaxUnit_0x152ab97dfd22b898
+ // PyMTL3 Component MinMaxUnit Definition
+ // At .../sim/tut3_pymtl/sort/MinMaxUnit.py
+ module MinMaxUnit__DataType_Bits8
  (
-   input  wire [   0:0] clk,
-   input  wire [   7:0] in0,
-   input  wire [   7:0] in1,
-   output reg  [   7:0] out_max,
-   output reg  [   7:0] out_min,
-   input  wire [   0:0] reset
+   input  logic [0:0] clk,
+   input  logic [7:0] in0,
+   input  logic [7:0] in1,
+   output logic [7:0] out_max,
+   output logic [7:0] out_min,
+   input  logic [0:0] reset
  );
 
-   // PYMTL SOURCE:
-   //
-   // @s.combinational
+   // PyMTL3 Update Block Source
+   // At .../sim/tut3_pymtl/sort/MinMaxUnit.py:26
+   // @s.update
    // def block():
    //
-   //       if s.in0 >= s.in1:
-   //         s.out_max.value = s.in0
-   //         s.out_min.value = s.in1
-   //       else:
-   //         s.out_max.value = s.in1
-   //         s.out_min.value = s.in0
+   //   if s.in0 >= s.in1:
+   //     s.out_max = s.in0
+   //     s.out_min = s.in1
+   //   else:
+   //     s.out_max = s.in1
+   //     s.out_min = s.in0
 
-   // logic for block()
-   always @ (*) begin
-     if ((in0 >= in1)) begin
+   always_comb begin : block
+     if ( in0 >= in1 ) begin
        out_max = in0;
        out_min = in1;
      end
@@ -680,20 +682,19 @@ translated Verilog.
      end
    end
 
- endmodule // MinMaxUnit_0x4b8e51bd8055176a
+ endmodule
 ```
 
-The complicated hash suffix is used by PyMTL to make the module name
-unique even for parameterized modules which are instantiated for a
-specific set of parameters. The hash might be different for your design.
-Although we hope students will not need to actually open up this
-translated Verilog it is occasionally necessary. For example, PyMTL is
-not perfect and can translate incorrectly which might require looking at
-the Verilog to see where it went wrong. Other steps in the ASIC flow
-might refer to an error in the translated Verilog which will also require
-looking at the Verilog to figure out why the other steps are going wrong.
-While we try and make things as automated as possible, students will
-eventually need to dig in and debug some of these steps themselves.
+The Verilog module name includes a suffix to make it unique for a
+specific set of parameters. Although we hope students will not need to
+actually open up this translated Verilog it is occasionally necessary.
+For example, PyMTL3 is not perfect and can translate incorrectly which
+might require looking at the Verilog to see where it went wrong. Other
+steps in the ASIC flow might refer to an error in the translated Verilog
+which will also require looking at the Verilog to figure out why the
+other steps are going wrong. While we try and make things as automated as
+possible, students will eventually need to dig in and debug some of these
+steps themselves.
 
 The `.vcd` file contains information about the state of every net in the
 design on every cycle. This can make these `.vcd` files very large and
@@ -704,7 +705,7 @@ single average activity factor for every net.
 
 ```
  % cd $TOPDIR/sim/build
- % vcd2saif -input sort-rtl-struct-random.verilator1.vcd -output sort-rtl-struct-random.saif
+ % vcd2saif -input sort-rtl-struct-random.vcd -output sort-rtl-struct-random.saif
 ```
 
 Using Synopsys Design Compiler for Synthesis
@@ -777,8 +778,8 @@ module references starting from the top-level module, and also infers
 various registers and/or advanced data-path components.
 
 ```
- dc_shell> analyze -format sverilog ../../sim/build/SortUnitStructRTL_8nbits.v
- dc_shell> elaborate SortUnitStructRTL_8nbits
+ dc_shell> analyze -format sverilog ../../sim/build/SortUnitStructRTL_8bit.v
+ dc_shell> elaborate SortUnitStructRTL_8bit
 ```
 
 We can use the `check_design` command to make sure there are no obvious
@@ -788,15 +789,14 @@ errors in our Verilog RTL.
  dc_shell> check_design
 ```
 
-You should see three warnings related to unconnected `clk[0]` and
-`reset[0]` ports. This is because PyMTL always includes `clk` and `reset`
-ports even if they are not actually used in the module. You can safely
-ignore these warnings. It is _critical_ that you carefully review all
-warnings. There may be many warnings, but you should still skim through
-them. Often times there will be something very wrong in your Verilog RTL
-which means any results from using the ASIC tools is completely bogus.
-Synopsys DC will output a warning, but Synopsys DC will usually just keep
-going, potentially producing a completely incorrect gate-level model!
+You should not see any warnings, however, it is _critical_ that you
+carefully review all warnings and errors when you analyze and elaborate a
+design with Synopsys DC. There may be many warnings, but you should still
+skim through them. Often times there will be something very wrong in your
+Verilog RTL which means any results from using the ASIC tools is
+completely bogus. Synopsys DC will output a warning, but Synopsys DC will
+usually just keep going, potentially producing a completely incorrect
+gate-level model!
 
 We need to create a clock constraint to tell Synopsys DC what our target
 cycle time is. Synopsys DC will not synthesize a design to run "as fast
@@ -849,7 +849,7 @@ contains the name mapping we will use in power analysis.
 ```
  dc_shell> saif_map -create_map \
   -input "../../sim/build/sort-rtl-struct-random.saif" \
-  -source_instance "TOP/SortUnitStructRTL_8nbits"
+  -source_instance "TOP/SortUnitStructRTL_8bit"
 
  dc_shell> saif_map -type ptpx -write_map "post-synth.namemap"
 ```
@@ -869,47 +869,47 @@ the design. Part of the report is displayed below.
 
 ```
  dc_shell> report_timing -nosplit -transition_time -nets -attributes
- ...
+  ...
   Point                                       Fanout     Trans  Incr  Path
   --------------------------------------------------------------------------
   clock ideal_clock1 (rise edge)                                0.00  0.00
   clock network delay (ideal)                                   0.00  0.00
-  elm_S1S2$003/out_reg[5]/CK (DFF_X1)                     0.00  0.00  0.00 r
-  elm_S1S2$003/out_reg[5]/Q (DFF_X1)                      0.01  0.08  0.08 f
-  elm_S1S2$003/out[5] (net)                     2               0.00  0.08 f
-  elm_S1S2$003/out[5] (Reg_0x45f1552f10c5f05d_5)                0.00  0.08 f
-  elm_S1S2$003$out[5] (net)                                     0.00  0.08 f
-  minmax1_S2/in1[5] (MinMaxUnit_0x152ab97dfd22b898_4)           0.00  0.08 f
-  minmax1_S2/in1[5] (net)                                       0.00  0.08 f
-  minmax1_S2/U25/Z (BUF_X1)                               0.01  0.04  0.12 f
-  minmax1_S2/n17 (net)                          2               0.00  0.12 f
-  minmax1_S2/U38/ZN (NAND2_X1)                            0.01  0.03  0.15 r
-  minmax1_S2/n35 (net)                          1               0.00  0.15 r
-  minmax1_S2/U34/ZN (OAI21_X1)                            0.01  0.03  0.18 f
-  minmax1_S2/n36 (net)                          2               0.00  0.18 f
-  minmax1_S2/U7/ZN (NOR2_X1)                              0.02  0.04  0.22 r
-  minmax1_S2/n6 (net)                           1               0.00  0.22 r
-  minmax1_S2/U12/ZN (OAI221_X1)                           0.02  0.05  0.27 f
-  minmax1_S2/n10 (net)                          2               0.00  0.27 f
-  minmax1_S2/U13/ZN (NAND2_X1)                            0.03  0.06  0.33 r
-  minmax1_S2/n52 (net)                          6               0.00  0.33 r
-  minmax1_S2/U58/ZN (OAI22_X1)                            0.01  0.04  0.38 f
-  minmax1_S2/out_min[1] (net)                   1               0.00  0.38 f
-  minmax1_S2/out_min[1] (MinMaxUnit_0x152ab97dfd22b898_4)       0.00  0.38 f
-  minmax1_S2$out_min[1] (net)                                   0.00  0.38 f
-  elm_S2S3$002/in_[1] (Reg_0x45f1552f10c5f05d_10)               0.00  0.38 f
-  elm_S2S3$002/in_[1] (net)                                     0.00  0.38 f
-  elm_S2S3$002/out_reg[1]/D (DFF_X1)                      0.01  0.01  0.39 f
-  data arrival time                                                   0.39
+  elm_S0S1__0/out_reg[5]/CK (DFF_X1)                      0.00  0.00  0.00 r
+  elm_S0S1__0/out_reg[5]/Q (DFF_X1)                       0.01  0.09  0.09 r
+  elm_S0S1__0/out[5] (net)                      2               0.00  0.09 r
+  elm_S0S1__0/out[5] (Reg__Type_Bits8_0)                        0.00  0.09 r
+  elm_S0S1__0__out[5] (net)                                     0.00  0.09 r
+  minmax0_S1/in0[5] (MinMaxUnit__DataType_Bits8_0)              0.00  0.09 r
+  minmax0_S1/in0[5] (net)                                       0.00  0.09 r
+  minmax0_S1/U56/ZN (INV_X1)                              0.01  0.03  0.12 f
+  minmax0_S1/n64 (net)                          3               0.00  0.12 f
+  minmax0_S1/U44/ZN (NAND2_X1)                            0.01  0.03  0.14 r
+  minmax0_S1/n43 (net)                          1               0.00  0.14 r
+  minmax0_S1/U40/ZN (OAI21_X1)                            0.01  0.03  0.18 f
+  minmax0_S1/n44 (net)                          2               0.00  0.18 f
+  minmax0_S1/U47/ZN (NOR2_X1)                             0.02  0.04  0.22 r
+  minmax0_S1/n45 (net)                          1               0.00  0.22 r
+  minmax0_S1/U13/ZN (OAI221_X1)                           0.02  0.05  0.27 f
+  minmax0_S1/n10 (net)                          2               0.00  0.27 f
+  minmax0_S1/U49/ZN (NAND2_X1)                            0.03  0.06  0.33 r
+  minmax0_S1/n59 (net)                          6               0.00  0.33 r
+  minmax0_S1/U69/ZN (OAI22_X1)                            0.01  0.04  0.38 f
+  minmax0_S1/out_min[3] (net)                   1               0.00  0.38 f
+  minmax0_S1/out_min[3] (MinMaxUnit__DataType_Bits8_0)          0.00  0.38 f
+  minmax0_S1__out_min[3] (net)                                  0.00  0.38 f
+  elm_S1S2__0/in_[3] (Reg__Type_Bits8_8)                        0.00  0.38 f
+  elm_S1S2__0/in_[3] (net)                                      0.00  0.38 f
+  elm_S1S2__0/out_reg[3]/D (DFF_X1)                       0.01  0.01  0.38 f
+  data arrival time                                                   0.38
 
   clock ideal_clock1 (rise edge)                                0.30  0.30
   clock network delay (ideal)                                   0.00  0.30
-  elm_S2S3$002/out_reg[1]/CK (DFF_X1)                           0.00  0.30 r
+  elm_S1S2__0/out_reg[3]/CK (DFF_X1)                            0.00  0.30 r
   library setup time                                           -0.04  0.26
   data required time                                                  0.26
   --------------------------------------------------------------------------
   data required time                                                  0.26
-  data arrival time                                                  -0.39
+  data arrival time                                                  -0.38
   --------------------------------------------------------------------------
   slack (VIOLATED)                                                   -0.13
 ```
@@ -921,14 +921,14 @@ practice) and finds the longest path. For more information about static
 timing analysis, consult Chapter 1 of the [Synopsys Timing Constraints
 and Optimization User
 Guide](http://www.csl.cornell.edu/courses/ece5745/syndocs/tcoug.pdf). The
-report clearly shows that the critical path starts at a pipeline register
-in between the S1 and S2 stages (`elm_S1S2$003`), goes into the second
-input of a `MinMaxUnit`, comes out the `out_min` port of the
-`MinMaxUnit`, and ends at a pipeline register in between the S2 and S3
-stages (`elm_S2S3$002`). The report shows the delay through each logic
-gate (e.g., the clk-to-q delay of the initial DFF is 80ps, the
+report clearly shows that the critical path starts at bit 5 of a pipeline
+register in between the S1 and S2 stages (`elm_S0S1__0`), goes into the
+first input of a `MinMaxUnit`, comes out the `out_min` port of the
+`MinMaxUnit`, and ends at a pipeline register in between the S1 and S2
+stages (`elm_S1S2__0`). The report shows the delay through each logic
+gate (e.g., the clk-to-q delay of the initial DFF is 90ps, the
 propagation delay of a NAND2_X1 gate is 30ps) and the total delay for the
-critical path which in this case is 0.39ns. Notice that there are two
+critical path which in this case is 0.38ns. Notice that there are two
 NAND2_X1 gates, but they do have the same propagation delay; this is
 because the static timing analysis also factors in input slew rates, rise
 vs fall time, and output load when calculating the delay of each gate. We
@@ -961,13 +961,13 @@ enable detailed area breakdown analysis.
 ```
  dc_shell> report_area -nosplit -hierarchy
  ...
- Combinational area:         333.298002
- Buf/Inv area:                83.258000
- Noncombinational area:      450.337984
+ Combinational area:         339.682001
+ Buf/Inv area:                90.440000
+ Noncombinational area:      451.401984
  Macro/Black Box area:         0.000000
  Net Interconnect area:       undefined  (Wire load has zero net area)
 
- Total cell area:            783.635986
+ Total cell area:            791.083986
  Total area:                  undefined
 
  Hierarchical area distribution
@@ -979,29 +979,29 @@ enable detailed area breakdown analysis.
  Hierarchical cell  Abs               Non  Black
                     Total  %    Comb  Comb Boxes
  ----------------- ------ ---- ----- ----- ---  -------------------------------
- SortUnitStructRTL  783.6  100   0.0   0.0 0.0  SortUnitStructRTL_8nbits
- elm_S0S1$000        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_4
- elm_S0S1$001        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_3
- elm_S0S1$002        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_2
- elm_S0S1$003        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_1
- elm_S1S2$000        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_8
- elm_S1S2$001        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_7
- elm_S1S2$002        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_6
- elm_S1S2$003        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_5
- elm_S2S3$000        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_0
- elm_S2S3$001        36.1  4.6   0.0  36.1 0.0  Reg_0x45f1552f10c5f05d_11
- elm_S2S3$002        37.2  4.8   0.0  37.2 0.0  Reg_0x45f1552f10c5f05d_10
- elm_S2S3$003        37.7  4.8   0.0  37.7 0.0  Reg_0x45f1552f10c5f05d_9
- minmax0_S1          73.4  9.4  73.4   0.0 0.0  MinMaxUnit_0x152ab97dfd22b898_1
- minmax0_S2          71.5  9.1  71.5   0.0 0.0  MinMaxUnit_0x152ab97dfd22b898_3
- minmax1_S1          71.2  9.1  71.2   0.0 0.0  MinMaxUnit_0x152ab97dfd22b898_2
- minmax1_S2          69.1  8.8  69.1   0.0 0.0  MinMaxUnit_0x152ab97dfd22b898_4
- minmax_S3           43.8  5.6  43.8   0.0 0.0  MinMaxUnit_0x152ab97dfd22b898_0
- val_S0S1             5.8  0.7   1.3   4.5 0.0  RegRst_0x2ce052f8c32c5c39_1
- val_S1S2             5.8  0.7   1.3   4.5 0.0  RegRst_0x2ce052f8c32c5c39_2
- val_S2S3             5.8  0.7   1.3   4.5 0.0  RegRst_0x2ce052f8c32c5c39_0
+ SortUnitStructRTL  791.0  100   0.0   0.0 0.0  SortUnitStructRTL_8bit
+ elm_S0S1__0         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_0
+ elm_S0S1__1         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_11
+ elm_S0S1__2         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_10
+ elm_S0S1__3         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_9
+ elm_S1S2__0         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_8
+ elm_S1S2__1         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_7
+ elm_S1S2__2         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_6
+ elm_S1S2__3         36.1  4.6   0.0  36.1 0.0  Reg__Type_Bits8_5
+ elm_S2S3__0         36.7  4.6   0.0  36.7 0.0  Reg__Type_Bits8_4
+ elm_S2S3__1         37.2  4.7   0.0  37.2 0.0  Reg__Type_Bits8_3
+ elm_S2S3__2         37.7  4.8   0.0  37.7 0.0  Reg__Type_Bits8_2
+ elm_S2S3__3         36.7  4.6   0.0  36.7 0.0  Reg__Type_Bits8_1
+ minmax0_S1          75.5  9.5  75.5   0.0 0.0  MinMaxUnit__DataType_Bits8_0
+ minmax0_S2          72.6  9.2  72.6   0.0 0.0  MinMaxUnit__DataType_Bits8_4
+ minmax1_S1          71.2  9.0  71.2   0.0 0.0  MinMaxUnit__DataType_Bits8_3
+ minmax1_S2          72.3  9.1  72.3   0.0 0.0  MinMaxUnit__DataType_Bits8_2
+ minmax_S3           43.8  5.5  43.8   0.0 0.0  MinMaxUnit__DataType_Bits8_1
+ val_S0S1             5.8  0.7   1.3   4.5 0.0  RegRst__Type_Bits1__reset_value_0_0
+ val_S1S2             5.8  0.7   1.3   4.5 0.0  RegRst__Type_Bits1__reset_value_0_2
+ val_S2S3             5.8  0.7   1.3   4.5 0.0  RegRst__Type_Bits1__reset_value_0_1
  ----------------- ------ ---- ----- ----- ---  -------------------------------
- Total                         333.2 450.3 0.0
+ Total                         339.6 451.4 0.0
 ```
 
 The units are in square micron. The cell area can sometimes be different
@@ -1009,7 +1009,7 @@ from the total area. The total cell area includes just the standard
 cells, while the total area can include interconnect area as well. If
 available, we will want to use the total area in our analysis. Otherwise
 we can just use the cell area. So we can see that the sort unit consumes
-approximately 784um^2 of area. We can also see that each pipeline
+approximately 791um^2 of area. We can also see that each pipeline
 register consumes about 4-5% of the area, while the `MinMaxUnit`s consume
 about ~40% of the area. This is one reason we try not to flatten our
 designs, since the module hierarchy helps us understand the area
@@ -1136,9 +1136,9 @@ editor to create a file named `constraints.sdc` in
 The create_clock command is similar to the command we used in synthesis,
 and we usually use the same target clock period that we used for
 synthesis. In this case, we are targeting a 333MHz clock frequency (i.e.,
-a 0.3ns clock period). You should replace the target clock period with
+a 0.3ns clock period). **You should replace the target clock period with
 whatever clock period was used to successfully meet timing in the
-previous section.
+previous section.**
 
 The second file is a "multi-mode multi-corner" (MMMC) analysis file. This
 file specifies what "corner" to use for our timing analysis. A corner is
@@ -1201,6 +1201,7 @@ Now that we have created our `constraints.sdc` and `setup-timing.tcl`
 files we can start Cadence Innovus:
 
 ```
+ % cd $TOPDIR/asic-manual/cadence-innovus
  % innovus -64
 ```
 
@@ -1215,7 +1216,7 @@ power and ground nets.
 ```
  innovus> set init_mmmc_file "setup-timing.tcl"
  innovus> set init_verilog   "../synopsys-dc/post-synth.v"
- innovus> set init_top_cell  "SortUnitStructRTL_8nbits"
+ innovus> set init_top_cell  "SortUnitStructRTL_8bit"
  innovus> set init_lef_file  "$env(ECE5745_STDCELLS)/rtk-tech.lef $env(ECE5745_STDCELLS)/stdcells.lef"
  innovus> set init_gnd_net   "VSS"
  innovus> set init_pwr_net   "VDD"
@@ -1347,18 +1348,18 @@ have been placed underneath a sea of wiring on the various metal layers.
 Note that Cadence Innovus has only done a very preliminary routing,
 primarily to help improve placement. You can use the Amobea workspace to
 help visualize how modules are mapped across the chip. Choose _Windows >
-Workspaces > Amoeba_ from the menu. You can also use the Design Browser
-to have more control over highlighting ports, nets, modules, and cells.
-Choose _Windows > Workspaces > Design Browser + Physical_ from the menu.
-Then hide all of the metal layers and just show the placed cells. Again
-you can do this by simply pressing the number keys to toggle the
-visibility of each metal layer. You can now browse the design hierarchy
-using the panel on the left, and when you select a port, net, module, or
-standard cell it will be highlighted in the physical view. If you right
-click on a module you can click _Highlight_ and then select a color to
-use for highlighting that module. In this way you can view where various
-modules are located on the chip. The following screen capture illustrates
-the location of the five `MinMaxUnit` modules.
+Workspaces > Amoeba_ from the menu. However, we recommend using the
+design browser to help visualize how modules are mapped across the chip.
+Here are the steps:
+
+ - Choose _Windows > Workspaces > Design Browser + Physical_ from the menu
+ - Hide all of the metal layers by pressing the number keys
+ - Browse the design hierarchy using the panel on the left
+ - Right click on a module, click _Highlight_, select a color
+
+In this way you can view where various modules are located on the chip.
+The following screen capture illustrates the location of the five
+`MinMaxUnit` modules.
 
 ![](assets/fig/cadence-innovus-4.png)
 
@@ -1484,33 +1485,33 @@ results. Let's start with a basic timing report.
  innovus> report_timing
  ...
  Other End Arrival Time          0.000
- - Setup                         0.044
+ - Setup                         0.045
  + Phase Shift                   0.600
- = Required Time                 0.556
- - Arrival Time                  0.492
- = Slack Time                    0.064
+ = Required Time                 0.555
+ - Arrival Time                  0.502
+ = Slack Time                    0.053
      Clock Rise Edge                 0.000
      + Clock Network Latency (Prop)  0.000
      = Beginpoint Arrival Time       0.000
-     +------------------------------------------------------------------------------------------------+
-     |                Instance                |     Arc      |   Cell    | Delay | Arrival | Required |
-     |                                        |              |           |       |  Time   |   Time   |
-     |----------------------------------------+--------------+-----------+-------+---------+----------|
-     | elm_S0S1$001/out_reg[1]                | CK ^         |           |       |   0.000 |    0.064 |
-     | elm_S0S1$001/out_reg[1]                | CK ^ -> Q ^  | DFF_X1    | 0.090 |   0.090 |    0.154 |
-     | minmax0_S1/FE_DBTC2_elm_S0S1_001_out_1 | A ^ -> ZN v  | INV_X1    | 0.014 |   0.104 |    0.168 |
-     | minmax0_S1/U57                         | B1 v -> ZN ^ | AOI21_X1  | 0.026 |   0.130 |    0.194 |
-     | minmax0_S1/U58                         | B1 ^ -> ZN v | AOI222_X1 | 0.026 |   0.156 |    0.220 |
-     | minmax0_S1/U9                          | A3 v -> ZN ^ | NOR3_X1   | 0.056 |   0.212 |    0.276 |
-     | minmax0_S1/U30                         | A1 ^ -> ZN v | NOR2_X1   | 0.012 |   0.224 |    0.288 |
-     | minmax0_S1/U31                         | A1 v -> ZN ^ | NOR2_X1   | 0.025 |   0.249 |    0.313 |
-     | minmax0_S1/U3                          | A1 ^ -> ZN v | NOR2_X1   | 0.010 |   0.260 |    0.324 |
-     | minmax0_S1/U59                         | A1 v -> ZN ^ | OAI22_X1  | 0.026 |   0.286 |    0.350 |
-     | minmax0_S1/U6                          | A1 ^ -> ZN v | NAND2_X1  | 0.075 |   0.360 |    0.424 |
-     | minmax0_S1/U60                         | A v -> ZN ^  | INV_X1    | 0.104 |   0.465 |    0.529 |
-     | minmax0_S1/U46                         | A1 ^ -> ZN v | OAI22_X1  | 0.027 |   0.492 |    0.556 |
-     | elm_S1S2$001/out_reg[6]                | D v          | DFF_X1    | 0.000 |   0.492 |    0.556 |
-     +------------------------------------------------------------------------------------------------+
+     +-----------------------------------------------------------------------------------------------+
+     |                Instance                |     Arc      |   Cell   | Delay | Arrival | Required |
+     |                                        |              |          |       |  Time   |   Time   |
+     |----------------------------------------+--------------+----------+-------+---------+----------|
+     | elm_S1S2__2/out_reg[3]                 | CK ^         |          |       |   0.000 |    0.053 |
+     | elm_S1S2__2/out_reg[3]                 | CK ^ -> Q ^  | DFF_X1   | 0.090 |   0.090 |    0.143 |
+     | minmax0_S2/FE_DBTC3_elm_S1S2__2__out_3 | A ^ -> ZN v  | INV_X1   | 0.013 |   0.104 |    0.156 |
+     | minmax0_S2/U14                         | A2 v -> ZN v | AND2_X1  | 0.029 |   0.133 |    0.186 |
+     | minmax0_S2/U7                          | A2 v -> ZN v | OR2_X1   | 0.048 |   0.181 |    0.234 |
+     | minmax0_S2/U10                         | A2 v -> ZN ^ | NOR2_X1  | 0.030 |   0.211 |    0.264 |
+     | minmax0_S2/U35                         | A1 ^ -> ZN v | NOR2_X1  | 0.011 |   0.222 |    0.275 |
+     | minmax0_S2/U11                         | A1 v -> ZN ^ | NOR2_X1  | 0.025 |   0.247 |    0.300 |
+     | minmax0_S2/U38                         | A1 ^ -> ZN v | NOR3_X1  | 0.012 |   0.258 |    0.311 |
+     | minmax0_S2/U65                         | A1 v -> ZN ^ | OAI22_X1 | 0.026 |   0.284 |    0.337 |
+     | minmax0_S2/U13                         | A1 ^ -> ZN v | NAND2_X1 | 0.077 |   0.362 |    0.415 |
+     | minmax0_S2/U33                         | A v -> ZN ^  | INV_X1   | 0.109 |   0.471 |    0.524 |
+     | minmax0_S2/U60                         | A2 ^ -> ZN v | OAI22_X1 | 0.032 |   0.502 |    0.555 |
+     | elm_S2S3__1/out_reg[7]                 | D v          | DFF_X1   | 0.000 |   0.502 |    0.555 |
+     +-----------------------------------------------------------------------------------------------+
 ```
 
 Note that for these results we used a target clock period of 0.6ns. This
@@ -1541,7 +1542,7 @@ You can also use the Design Browser to highlight specific modules to
 visualize how the critical path is routed across the chip between these
 modules. The following screen capture illustrates the critical path in
 our three-stage sort unit. From the above timing report we know the
-critical path basically goes through the `minmax0_S1` module, so we have
+critical path basically goes through the `minmax0_S2` module, so we have
 highlighted that module in red using the Design Browser. Cadence Innovus
 has worked hard in both placement and routing to keep the critical path
 short. If your critical path stretches across the entire chip you may
@@ -1556,37 +1557,37 @@ results will be far more accurate than the post-synthesis results.
 
 ```
  innovus> report_area
-  Depth  Name                        #Inst  Area (um^2)
- ------------------------------------------------------
- 0      SortUnitStructRTL_8nbits    363    705.698
- 1      {elm_S0S1$003}              8      36.176
- 1      val_S1S2                    3      5.852
- 1      {elm_S2S3$002}              8      36.176
- 1      {elm_S0S1$000}              8      36.176
- 1      minmax_S3                   42     43.89
- 1      {elm_S1S2$000}              8      36.176
- 1      {elm_S1S2$001}              8      36.176
- 1      minmax0_S1                  54     51.87
- 1      val_S2S3                    3      5.852
- 1      {elm_S0S1$002}              8      36.176
- 1      {elm_S2S3$001}              8      36.176
- 1      {elm_S1S2$003}              8      36.176
- 1      minmax0_S2                  58     53.998
- 1      val_S0S1                    3      5.852
- 1      minmax1_S1                  52     52.136
- 1      {elm_S2S3$003}              8      36.176
- 1      {elm_S0S1$001}              8      36.176
- 1      {elm_S2S3$000}              8      36.176
- 1      {elm_S1S2$002}              8      36.176
- 1      minmax1_S2                  52     52.136
+  Depth  Name                          #Inst  Area (um^2)
+  --------------------------------------------------------
+  0      SortUnitStructRTL_8bit    369    709.688
+  1      elm_S1S2__2                   8      36.176
+  1      val_S1S2                      3      5.852
+  1      minmax0_S1                    58     53.998
+  1      elm_S0S1__3                   8      36.176
+  1      minmax1_S2                    54     52.934
+  1      elm_S0S1__0                   8      36.176
+  1      elm_S2S3__0                   8      36.176
+  1      elm_S2S3__1                   8      36.176
+  1      minmax1_S1                    53     52.934
+  1      elm_S1S2__1                   8      36.176
+  1      val_S0S1                      3      5.852
+  1      elm_S0S1__2                   8      36.176
+  1      elm_S2S3__3                   8      36.176
+  1      elm_S1S2__3                   8      36.176
+  1      val_S2S3                      3      5.852
+  1      minmax0_S2                    57     54.264
+  1      elm_S1S2__0                   8      36.176
+  1      minmax_S3                     42     43.89
+  1      elm_S0S1__1                   8      36.176
+  1      elm_S2S3__2                   8      36.176
 ```
 
 The `#Inst` column indicates the number of non-filler cells in that
-module. There are a total of 363 standard cells in the design. Each
+module. There are a total of 369 standard cells in the design. Each
 register has eight standard cells; eight flip-flops since it is an
 eight-bit register. The `MinMaxUnit`s have a different number of cells
 since they have been optimized differently. The `MinMaxUnit`s consume
-about ~70% of the area.
+about ~40% of the area.
 
 As in Synopsys DC, the `report_power` command can show how much power
 each module consumes. Note that this power analysis is still not that
@@ -1741,7 +1742,7 @@ top-level module).
 
 ```
  pt_shell> read_verilog   "../cadence-innovus/post-par.v"
- pt_shell> current_design SortUnitStructRTL_8nbits
+ pt_shell> current_design SortUnitStructRTL_8bit
  pt_shell> link_design
 ```
 
@@ -1778,7 +1779,7 @@ make sure we do everything we can to ensure as many nets as possible
 match between the `.saif` generated from RTL and the gate-level netlist.
 
 ```
- pt_shell> read_saif "../../sim/build/sort-rtl-struct-random.saif" -strip_path "TOP/SortUnitStructRTL_8nbits"
+ pt_shell> read_saif "../../sim/build/sort-rtl-struct-random.saif" -strip_path "TOP/SortUnitStructRTL_8bit"
 ```
 
 The `.db` file includes parasitic capacitance estimates for every pin of
@@ -1808,33 +1809,33 @@ how much power the sort unit consumes.
 ```
  pt_shell> report_power -nosplit
  ...
-                Internal Switching  Leakage    Total
- Power Group    Power    Power      Power      Power     (     %)
- ----------------------------------------------------------------
- clock_network  3.8e-04  0.0        0.0        3.800e-04 (24.27%)
- register       4.3e-04  9.256e-05  7.826e-06  5.317e-04 (33.95%)
- combinational  2.5e-04  3.965e-04  6.598e-06  6.543e-04 (41.78%)
- sequential     0.0      0.0        0.0        0.0       ( 0.00%)
- memory         0.0      0.0        0.0        0.0       ( 0.00%)
- io_pad         0.0      0.0        0.0        0.0       ( 0.00%)
- black_box      0.0      0.0        0.0        0.0       ( 0.00%)
+                Internal Switching Leakage Total
+ Power Group    Power    Power     Power   Power   (     %)
+ ----------------------------------------------------------
+ clock_network  3.8e-04  0.0       0.0     3.8e-04 (25.76%)
+ register       4.1e-04  8.2e-05   7.8e-06 5.0e-04 (34.06%)
+ combinational  2.4e-04  3.4e-04   6.6e-06 5.9e-04 (40.18%)
+ sequential     0.0      0.0       0.0     0.0     ( 0.00%)
+ memory         0.0      0.0       0.0     0.0     ( 0.00%)
+ io_pad         0.0      0.0       0.0     0.0     ( 0.00%)
+ black_box      0.0      0.0       0.0     0.0     ( 0.00%)
 
-  Net Switching Power  = 4.890e-04   (31.23%)
-  Cell Internal Power  = 1.063e-03   (67.85%)
-  Cell Leakage Power   = 1.442e-05   ( 0.92%)
+  Net Switching Power  = 4.267e-04   (28.82%)
+  Cell Internal Power  = 1.039e-03   (70.20%)
+  Cell Leakage Power   = 1.450e-05   ( 0.98%)
                          ---------
-  Total Power          = 1.566e-03  (100.00%)
+  Total Power          = 1.481e-03  (100.00%)
 ```
 
-These numbers are in Watts. We can see that the sort unit consumes ~1.6mW
+These numbers are in Watts. We can see that the sort unit consumes ~1.5mW
 of power when processing random input data. Power is the rate change of
 energy (i.e., energy divided by execution time), so the total energy is
 just the product of the total power, the number of cycles, and the cycle
 time. When we ran the sort unit simulator at the beginning of the
 tutorial, we saw that the simulation required 105 cycles. Assuming our
-sort unit runs as 0.6ns, this means the total energy is 1.6mW * 105 *
-0.6ns = 269pJ. Since we are doing 100 sorts, this corresponds to about
-2.7pJ per sort.
+sort unit runs as 0.6ns, this means the total energy is 1.5mW * 105 *
+0.6ns = 95pJ. Since we are doing 100 sorts, this corresponds to about 1pJ
+per sort.
 
 The power is broken down into internal, switching, and leakage power.
 Internal and switching power are both forms of dynamic power, while
@@ -1860,30 +1861,30 @@ consumes in the design.
 ```
  pt_shell> report_power -nosplit -hierarchy
  ...
-                            Int      Switch   Leak     Total
- Hierarchy                  Power    Power    Power    Power        %
+                             Int      Switch   Leak     Total
+ Hierarchy                   Power    Power    Power    Power        %
  ---------------------------------------------------------------------
- SortUnitStructRTL_8nbits   1.06e-03 4.89e-04 1.44e-05 1.57e-03 100.0
-  elm_S1S2$001 (Reg_7)      6.68e-05 8.22e-06 6.32e-07 7.57e-05   4.8
-  elm_S1S2$002 (Reg_6)      6.53e-05 9.14e-06 6.33e-07 7.51e-05   4.8
-  elm_S1S2$003 (Reg_5)      6.47e-05 9.45e-06 6.32e-07 7.48e-05   4.8
-  val_S0S1 (RegRst_1)       6.64e-06 6.95e-08 1.17e-07 6.83e-06   0.4
-  minmax0_S1 (MinMaxUnit_1) 5.17e-05 8.32e-05 1.32e-06 1.36e-04   8.7
-  minmax0_S2 (MinMaxUnit_3) 5.34e-05 8.21e-05 1.39e-06 1.37e-04   8.7
-  elm_S0S1$000 (Reg_4)      6.78e-05 8.98e-06 6.33e-07 7.74e-05   4.9
-  elm_S0S1$001 (Reg_3)      6.55e-05 9.09e-06 6.33e-07 7.52e-05   4.8
-  elm_S0S1$002 (Reg_2)      6.58e-05 8.03e-06 6.33e-07 7.44e-05   4.8
-  elm_S0S1$003 (Reg_1)      6.53e-05 1.03e-05 6.33e-07 7.62e-05   4.9
-  minmax1_S1 (MinMaxUnit_2) 5.10e-05 8.02e-05 1.33e-06 1.33e-04   8.5
-  minmax1_S2 (MinMaxUnit_4) 5.07e-05 7.89e-05 1.31e-06 1.31e-04   8.4
-  elm_S2S3$000 (Reg_0)      6.43e-05 6.35e-07 6.30e-07 6.56e-05   4.2
-  elm_S2S3$001 (Reg_11)     6.54e-05 8.90e-06 6.33e-07 7.49e-05   4.8
-  elm_S2S3$002 (Reg_10)     6.75e-05 1.10e-05 6.33e-07 7.91e-05   5.1
-  minmax_S3 (MinMaxUnit_5)  4.42e-05 7.20e-05 1.13e-06 1.17e-04   7.5
-  elm_S2S3$003 (Reg_9)      6.59e-05 6.85e-07 6.32e-07 6.72e-05   4.3
-  val_S2S3 (RegRst_0)       6.63e-06 4.88e-08 1.17e-07 6.80e-06   0.4
-  elm_S1S2$000 (Reg_8)      6.73e-05 8.08e-06 6.33e-07 7.60e-05   4.9
-  val_S1S2 (RegRst_2)       6.65e-06 7.09e-08 1.17e-07 6.83e-06   0.4
+ SortUnitStructRTL_8bit  1.04e-03 4.27e-04 1.45e-05 1.48e-03 100.0
+  elm_S2S3__0 (Reg_4)        6.17e-05 5.74e-07 6.30e-07 6.29e-05   4.3
+  elm_S1S2__0 (Reg_8)        6.34e-05 6.60e-06 6.33e-07 7.06e-05   4.8
+  elm_S2S3__1 (Reg_3)        6.50e-05 7.91e-06 6.33e-07 7.36e-05   5.0
+  val_S0S1    (RegRst_0)     6.66e-06 6.89e-08 1.17e-07 6.85e-06   0.5
+  elm_S1S2__1 (Reg_7)        6.56e-05 8.73e-06 6.32e-07 7.50e-05   5.1
+  elm_S0S1__0 (Reg_0)        6.49e-05 6.99e-06 6.33e-07 7.26e-05   4.9
+  elm_S2S3__2 (Reg_2)        6.46e-05 9.64e-06 6.33e-07 7.49e-05   5.1
+  elm_S0S1__1 (Reg_11)       6.52e-05 8.31e-06 6.33e-07 7.42e-05   5.0
+  minmax0_S1  (MinMaxUnit_0) 5.18e-05 7.10e-05 1.36e-06 1.24e-04   8.4
+  elm_S2S3__3 (Reg_1)        6.42e-05 6.38e-07 6.32e-07 6.55e-05   4.4
+  elm_S1S2__2 (Reg_6)        6.41e-05 9.20e-06 6.33e-07 7.39e-05   5.0
+  elm_S0S1__2 (Reg_10)       6.57e-05 7.03e-06 6.33e-07 7.34e-05   5.0
+  minmax0_S2  (MinMaxUnit_4) 4.93e-05 6.81e-05 1.39e-06 1.19e-04   8.0
+  elm_S1S2__3 (Reg_5)        6.44e-05 8.12e-06 6.32e-07 7.31e-05   4.9
+  elm_S0S1__3 (Reg_9)        6.61e-05 9.15e-06 6.33e-07 7.59e-05   5.1
+  minmax1_S1  (MinMaxUnit_3) 5.20e-05 7.23e-05 1.36e-06 1.26e-04   8.5
+  minmax1_S2  (MinMaxUnit_2) 4.91e-05 7.01e-05 1.33e-06 1.20e-04   8.1
+  minmax_S3   (MinMaxUnit_1) 4.23e-05 6.21e-05 1.13e-06 1.06e-04   7.1
+  val_S2S3    (RegRst_1)     6.65e-06 5.00e-08 1.17e-07 6.82e-06   0.5
+  val_S1S2    (RegRst_2)     6.67e-06 6.84e-08 1.17e-07 6.85e-06   0.5
 ```
 
 From this breakdown, you can see that each `MinMaxUnit` consumes about
@@ -1907,7 +1908,7 @@ to the sort unit are zeros.
  % ../tut3_pymtl/sort/sort-sim --impl rtl-struct --input zeros --stats --translate --dump-vcd
  num_cycles          = 105
  num_cycles_per_sort = 1.05
- % vcd2saif -input sort-rtl-struct-zeros.verilator1.vcd -output sort-rtl-struct-zeros.saif
+ % vcd2saif -input sort-rtl-struct-zeros.vcd -output sort-rtl-struct-zeros.saif
 ```
 
 Do you think a stream of random data will consume more or less power
@@ -1916,7 +1917,7 @@ you will need to read in the new `.saif` file. In other words, use the
 following command:
 
 ```
- pt_shell> read_saif "../../sim/build/sort-rtl-struct-zeros.saif" -strip_path "TOP/SortUnitStructRTL_8nbits"
+ pt_shell> read_saif "../../sim/build/sort-rtl-struct-zeros.saif" -strip_path "TOP/SortUnitStructRTL_8bit"
 ```
 
 As with Synopsys DC, you can put a sequence of commands in a `.tcl` file
@@ -1927,17 +1928,17 @@ and then run Synopsys PT using those commands in one step like this:
  % pt_shell -file init.tcl
 ```
 
-So consider placing the commands from this section into a `.tcl` file
-to make it easy to rerun Synopsys PT.
+So consider placing the commands from this section into a `.tcl` file to
+make it easy to rerun Synopsys PT.
 
 Using Verilog RTL Models
 --------------------------------------------------------------------------
 
-Students are welcome to use Verilog instead of PyMTL to design their RTL
-models. Having said this, we will still exclusively use PyMTL for all
+Students are welcome to use Verilog instead of PyMTL3 to design their RTL
+models. Having said this, we will still exclusively use PyMTL3 for all
 test harnesses, FL/CL models, and simulation drivers. This really
-simplifies managing the course, and PyMTL is actually a very productive
-way to test/evaluate your Verilog RTL designs. We use PyMTL's Verilog
+simplifies managing the course, and PyMTL3 is actually a very productive
+way to test/evaluate your Verilog RTL designs. We use PyMTL3's Verilog
 import feature described in the Verilog tutorial to make all of this
 work. The following commands will run all of the tests on the _Verilog_
 implementation of the sort unit.
@@ -1950,7 +1951,7 @@ implementation of the sort unit.
 
 As before, the tests for the `SortUnitStructRTL` will fail. You can just
 copy over your implementation of the `MinMaxUnit` from when you completed
-the Verilog tutorial. If you have not completed the PyMTL tutorial then
+the Verilog tutorial. If you have not completed the PyMTL3 tutorial then
 you might want to go back and do that now. Basically the `MinMaxUnit`
 should look like this:
 
@@ -1996,18 +1997,18 @@ endmodule
 ```
 
 After running the tests we use the sort unit simulator to translate the
-PyMTL RTL model into Verilog and to dump the VCD file that we want to use
+PyMTL3 RTL model into Verilog and to dump the VCD file that we want to use
 for power analysis.
 
 ```
  % cd $TOPDIR/sim/build
- % ../tut4_verilog/sort/sort-sim --impl rtl-struct --translate --dump-vcd
- % vcd2saif -input sort-rtl-struct-random.verilator1.vcd -output sort-rtl-struct-random.saif
+ % ../tut4_verilog/sort/sort-sim --impl rtl-struct --stats --translate --dump-vcd
+ % vcd2saif -input sort-rtl-struct-random.vcd -output sort-rtl-struct-random.saif
 ```
 
 Take a moment to open up the translated Verilog which should be in a file
-named `SortUnitStructRTL_8nbits.v`. You might ask, "Why do we need to use
-PyMTL to translate the Verilog if we already have the Verilog?" PyMTL
+named `SortUnitStructRTL_8bit.v`. You might ask, "Why do we need to use
+PyMTL3 to translate the Verilog if we already have the Verilog?" PyMTL3
 will take care of preprocessing all of your Verilog RTL code to ensure it
 is in a single Verilog file. This greatly simplifies getting your design
 into the ASIC flow. This also ensures a one-to-one match between the
@@ -2022,8 +2023,8 @@ To Do On Your Own
 --------------------------------------------------------------------------
 
 Use what you have learned so far to push the GCD Unit through the flow.
-You can use either the PyMTL or Verilog GCD Unit provided along with this
-tutorial. You will need to verify the GCD Unit works, generate the
+You can use either the PyMTL3 or Verilog GCD Unit provided along with
+this tutorial. You will need to verify the GCD Unit works, generate the
 corresponding Verilog RTL and VCD file using the GCD Unit simulator,
 generate the corresponding `.saif` file, use Synopsys DC to synthesize
 the design to a gate-level netlist, use Cadence Innovus to

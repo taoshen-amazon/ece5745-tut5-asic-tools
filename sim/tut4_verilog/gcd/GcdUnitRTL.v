@@ -141,9 +141,9 @@ module tut4_verilog_gcd_GcdUnitCtrl
 
   // Dataflow signals
 
-  input  logic        req_val,
+  input  logic        req_en,
   output logic        req_rdy,
-  output logic        resp_val,
+  output logic        resp_en,
   input  logic        resp_rdy,
 
   // Control signals
@@ -191,8 +191,8 @@ module tut4_verilog_gcd_GcdUnitCtrl
   logic resp_go;
   logic is_calc_done;
 
-  assign req_go       = req_val  && req_rdy;
-  assign resp_go      = resp_val && resp_rdy;
+  assign req_go       = req_en;
+  assign resp_go      = resp_en;
   assign is_calc_done = !is_a_lt_b && is_b_zero;
 
   always_comb begin
@@ -226,7 +226,7 @@ module tut4_verilog_gcd_GcdUnitCtrl
   function void cs
   (
     input logic       cs_req_rdy,
-    input logic       cs_resp_val,
+    input logic       cs_resp_en,
     input logic [1:0] cs_a_mux_sel,
     input logic       cs_a_reg_en,
     input logic       cs_b_mux_sel,
@@ -234,7 +234,7 @@ module tut4_verilog_gcd_GcdUnitCtrl
   );
   begin
     req_rdy   = cs_req_rdy;
-    resp_val  = cs_resp_val;
+    resp_en  = cs_resp_en;
     a_reg_en  = cs_a_reg_en;
     b_reg_en  = cs_b_reg_en;
     a_mux_sel = cs_a_mux_sel;
@@ -256,13 +256,13 @@ module tut4_verilog_gcd_GcdUnitCtrl
 
     cs( 0, 0, a_x, 0, b_x, 0 );
     case ( state_reg )
-      //                             req resp a mux  a  b mux b
-      //                             rdy val  sel    en sel   en
-      STATE_IDLE:                cs( 1,  0,   a_ld,  1, b_ld, 1 );
-      STATE_CALC: if ( do_swap ) cs( 0,  0,   a_b,   1, b_a,  1 );
-             else if ( do_sub  ) cs( 0,  0,   a_sub, 1, b_x,  0 );
-      STATE_DONE:                cs( 0,  1,   a_x,   0, b_x,  0 );
-      default                    cs('x, 'x,   a_x,  'x, b_x, 'x );
+      //                             req resp        a mux  a  b mux b
+      //                             rdy en          sel    en sel   en
+      STATE_IDLE:                cs( 1,  0,          a_ld,  1, b_ld, 1 );
+      STATE_CALC: if ( do_swap ) cs( 0,  0,          a_b,   1, b_a,  1 );
+             else if ( do_sub  ) cs( 0,  0,          a_sub, 1, b_x,  0 );
+      STATE_DONE:                cs( 0,  resp_rdy,   a_x,   0, b_x,  0 );
+      default                    cs('x, 'x,          a_x,  'x, b_x, 'x );
 
     endcase
 
@@ -279,11 +279,11 @@ module tut4_verilog_gcd_GcdUnitRTL
   input  logic             clk,
   input  logic             reset,
 
-  input  logic             req_val,
+  input  logic             req_en,
   output logic             req_rdy,
   input  logic [31:0]      req_msg,
 
-  output logic             resp_val,
+  output logic             resp_en,
   input  logic             resp_rdy,
   output logic [15:0]      resp_msg
 );
@@ -329,7 +329,7 @@ module tut4_verilog_gcd_GcdUnitRTL
   begin
 
     $sformat( str, "%x:%x", req_msg[31:16], req_msg[15:0] );
-    vc_trace.append_val_rdy_str( trace_str, req_val, req_rdy, str );
+    vc_trace.append_en_rdy_str( trace_str, req_en, req_rdy, str );
 
     vc_trace.append_str( trace_str, "(" );
 
@@ -367,7 +367,7 @@ module tut4_verilog_gcd_GcdUnitRTL
     vc_trace.append_str( trace_str, ")" );
 
     $sformat( str, "%x", resp_msg );
-    vc_trace.append_val_rdy_str( trace_str, resp_val, resp_rdy, str );
+    vc_trace.append_en_rdy_str( trace_str, resp_en, resp_rdy, str );
 
   end
   `VC_TRACE_END

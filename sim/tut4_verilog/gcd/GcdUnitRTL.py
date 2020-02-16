@@ -2,43 +2,54 @@
 # GCD Unit RTL Model
 #=========================================================================
 
-from pymtl       import *
-from pclib.ifcs  import InValRdyBundle, OutValRdyBundle, valrdy_to_str
+import os
+from pymtl3 import *
+from pymtl3.stdlib.ifcs import MinionIfcRTL
+from pymtl3.passes.backends.verilog import (
+  VerilogPlaceholderConfigs,
+  VerilatorImportConfigs,
+  TranslationConfigs,
+)
 
-from GcdUnitMsg  import GcdUnitReqMsg
+from .GcdUnitMsg  import GcdUnitMsgs
 
-class GcdUnitRTL( VerilogModel ):
+#=========================================================================
+# GCD Unit RTL Model
+#=========================================================================
 
-  # Verilog module setup
-
-  vprefix = "tut4_verilog_gcd"
-  vlinetrace = True
+class GcdUnitRTL( Placeholder, Component ):
 
   # Constructor
 
-  def __init__( s ):
-
-    # Verilog module name
-
-    s.explicit_modulename = "GcdUnitRTL"
+  def construct( s ):
 
     # Interface
 
-    s.req   = InValRdyBundle  ( GcdUnitReqMsg() )
-    s.resp  = OutValRdyBundle ( Bits(16)        )
+    s.minion = MinionIfcRTL( GcdUnitMsgs.req, GcdUnitMsgs.resp )
 
-    # Verilog ports
+    # Configurations
 
-    s.set_ports({
-      'clk'         : s.clk,
-      'reset'       : s.reset,
+    s.config_placeholder = VerilogPlaceholderConfigs(
+      # Path to the Verilog source file
+      src_file = os.path.dirname( __file__ ) + '/GcdUnitRTL.v',
+      # Name of the Verilog top level module
+      top_module = 'tut4_verilog_gcd_GcdUnitRTL',
+      # Port name map
+      port_map = {
+        'minion.req.en'   : 'req_en',
+        'minion.req.rdy'  : 'req_rdy',
+        'minion.req.msg'  : 'req_msg',
+        'minion.resp.en'  : 'resp_en',
+        'minion.resp.rdy' : 'resp_rdy',
+        'minion.resp.msg' : 'resp_msg',
+      },
+    )
 
-      'req_val'     : s.req.val,
-      'req_rdy'     : s.req.rdy,
-      'req_msg'     : s.req.msg,
-
-      'resp_val'    : s.resp.val,
-      'resp_rdy'    : s.resp.rdy,
-      'resp_msg'    : s.resp.msg,
-    })
-
+    s.config_verilog_import = VerilatorImportConfigs(
+      # Enable native Verilog line trace through Verilator
+      vl_line_trace = True,
+    )
+    s.config_verilog_translate = TranslationConfigs(
+      translate = False,
+      explicit_module_name = 'GcdUnitRTL',
+    )

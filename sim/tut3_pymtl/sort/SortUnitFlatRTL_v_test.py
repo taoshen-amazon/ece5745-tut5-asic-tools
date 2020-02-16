@@ -2,48 +2,49 @@
 # SortUnitFlatRTL_v_test
 #=========================================================================
 
-from pymtl           import *
-from SortUnitFlatRTL import SortUnitFlatRTL
+from pymtl3                         import *
+from pymtl3.passes.backends.verilog import VerilogPlaceholderPass, TranslationImportPass
+from pymtl3.stdlib.test             import config_model
+from .SortUnitFlatRTL               import SortUnitFlatRTL
 
 def test_verilate( dump_vcd, test_verilog ):
 
   # Conflat the model
 
-  model = SortUnitFlatRTL()
-  model.vcd_file = dump_vcd
+  model = SortUnitFlatRTL(8)
 
-  # Translate the model into Verilog
+  # Configure the model
 
-  if test_verilog:
-    model = TranslationTool( model )
+  config_model( model, dump_vcd, test_verilog )
 
-  # Elaborate the model
+  # Apply necessary passes
 
-  model.elaborate()
+  model.apply ( VerilogPlaceholderPass() )
+  model = TranslationImportPass()( model )
 
   # Create and reset simulator
 
-  sim = SimulationTool( model )
-  sim.reset()
-  print ""
+  model.apply( SimulationPass() )
+  model.sim_reset()
+  print("")
 
   # Helper function
 
   def t( in_val, in_, out_val, out ):
 
-    model.in_val.value = in_val
+    model.in_val = b1(in_val)
     for i,v in enumerate( in_ ):
-      model.in_[i].value = v
+      model.in_[i] = b8(v)
 
-    sim.eval_combinational()
-    sim.print_line_trace()
+    model.eval_combinational()
+    print( model.line_trace() )
 
     assert model.out_val == out_val
     if ( out_val ):
       for i,v in enumerate( out ):
         assert model.out[i] == v
 
-    sim.cycle()
+    model.tick()
 
   # Cycle-by-cycle tests
 

@@ -9,7 +9,7 @@ import os
 from subprocess import check_call, CalledProcessError
 from itertools  import product
 
-impls  = [ "fl", "cl", "rtl" ]
+impls  = [ "cl", "rtl" ]
 inputs = [ "random", "small", "zeros" ]
 
 @pytest.mark.parametrize( "impl,input_", product(impls,inputs) )
@@ -35,8 +35,8 @@ def test( impl, input_, test_verilog ):
 
   # Display simulator command line
 
-  print ""
-  print "Simulator command line:", ' '.join(cmd)
+  print("")
+  print("Simulator command line:", ' '.join(cmd))
 
   # Run the simulator
 

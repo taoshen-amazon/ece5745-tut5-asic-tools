@@ -4,13 +4,16 @@
 
 import pytest
 
-from copy            import deepcopy
-from random          import randint
+from copy               import deepcopy
+from random             import randint
 
-from pymtl           import *
-from pclib.test      import run_test_vector_sim
-from SortUnitCL_test import mk_test_vector_table
-from SortUnitFlatRTL import SortUnitFlatRTL
+from pymtl3             import *
+from pymtl3.stdlib.test import run_test_vector_sim
+from .SortUnitFlatRTL   import SortUnitFlatRTL
+
+from .SortUnitFL_test   import tvec_stream, tvec_dups, tvec_sorted, tvec_random
+from .SortUnitCL_test   import mk_test_vector_table
+
 
 #-------------------------------------------------------------------------
 # Syntax helpers
@@ -27,10 +30,6 @@ header_str = \
 # character instead of '?' to indicate don't care reference outputs
 
 x = '?'
-
-# Use xr as shorthand for xrange to make list comprehensions more compact
-
-xr = xrange
 
 #-------------------------------------------------------------------------
 # test_basic
@@ -53,34 +52,31 @@ def test_basic( dump_vcd, test_verilog ):
 #-------------------------------------------------------------------------
 
 def test_stream( dump_vcd, test_verilog ):
-  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, [
-    [ 4, 3, 2, 1 ], [ 9, 6, 7, 1 ], [ 4, 8, 0, 9 ]
-  ]), dump_vcd, test_verilog )
+  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, tvec_stream ),
+                       dump_vcd, test_verilog )
 
 #-------------------------------------------------------------------------
 # test_dups
 #-------------------------------------------------------------------------
 
 def test_dups( dump_vcd, test_verilog ):
-  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, [
-    [ 2, 8, 9, 9 ], [ 2, 8, 2, 8 ], [ 1, 1, 1, 1 ]
-  ]), dump_vcd, test_verilog )
+  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, tvec_dups ),
+                       dump_vcd, test_verilog )
 
 #-------------------------------------------------------------------------
 # test_sorted
 #-------------------------------------------------------------------------
 
 def test_sorted( dump_vcd, test_verilog ):
-  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, [
-    [ 1, 2, 3, 4 ], [ 1, 3, 5, 7 ], [ 4, 3, 2, 1 ]
-  ]), dump_vcd, test_verilog )
+  run_test_vector_sim( SortUnitFlatRTL(), mk_test_vector_table( 3, tvec_sorted ),
+                       dump_vcd, test_verilog )
 
 #-------------------------------------------------------------------------
 # test_random
 #-------------------------------------------------------------------------
 
-def test_random( dump_vcd, test_verilog ):
-  tvec_random = [ [ randint(0,0xff) for i in xr(4) ] for y in xr(20) ]
-  run_test_vector_sim( SortUnitFlatRTL(),
+@pytest.mark.parametrize( "nbits", [ 4, 8, 16, 32 ] )
+def test_random( nbits, dump_vcd, test_verilog ):
+  tvec_random = [ [ randint(0,2**nbits-1) for _ in range(4) ] for _ in range(20) ]
+  run_test_vector_sim( SortUnitFlatRTL(nbits),
     mk_test_vector_table( 3, tvec_random ), dump_vcd, test_verilog )
-

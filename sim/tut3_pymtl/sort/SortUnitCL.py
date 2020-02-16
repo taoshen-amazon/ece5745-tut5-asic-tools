@@ -4,31 +4,31 @@
 # Models the cycle-approximate timing behavior of the target hardware.
 
 from collections import deque
-from copy        import deepcopy
 
-from pymtl       import *
+from pymtl3       import *
 
-class SortUnitCL( Model ):
+class SortUnitCL( Component ):
 
   # Constructor
 
-  def __init__( s, nbits=8, nstages=3 ):
+  def construct( s, nbits=8, nstages=3 ):
+    DataType = mk_bits( nbits )
 
-    s.in_val  = InPort (1)
-    s.in_     = [ InPort  (nbits) for _ in range(4) ]
+    s.in_val = InPort ()
+    s.in_    = [ InPort (DataType) for _ in range(4) ]
 
-    s.out_val = OutPort(1)
-    s.out     = [ OutPort (nbits) for _ in range(4) ]
+    s.out_val = OutPort()
+    s.out     = [ OutPort(DataType) for _ in range(4) ]
 
-    s.pipe    = deque( [[0,0,0,0,0]]*(nstages-1) )
+    s.pipe    = deque( [ [b1(0)] + [DataType(0) for _ in range(4)] ] * (nstages-1) )
 
-    @s.tick_cl
+    @s.update_ff
     def block():
-      s.pipe.append( deepcopy( [s.in_val] + sorted(s.in_) ) )
+      s.pipe.append( [ s.in_val ] + sorted(s.in_) )
       data = s.pipe.popleft()
-      s.out_val.next = data[0]
+      s.out_val <<= data[0]
       for i, v in enumerate( data[1:] ):
-        s.out[i].next = v
+        s.out[i] <<= v
 
   # Line tracing
 
